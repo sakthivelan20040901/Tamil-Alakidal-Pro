@@ -359,38 +359,17 @@
       btn.disabled = true;
 
       const targetUrl = `https://thirukkural-api-jyle.onrender.com/tamil/${kuralNum}`;
-      const proxyBuilders = [
-        url => `https://tamilalakidalpro.ksakthivelan4002.workers.dev/?url=${encodeURIComponent(url)}`,
-        url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`,
-        url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        url => url,
-      ];
 
       let lastError = null;
       let data = null;
 
-      for (const buildUrl of proxyBuilders) {
-        const apiUrl = buildUrl(targetUrl);
-        try {
-          const response = await fetch(apiUrl);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          data = await response.json();
-          
-          // Handle allorigins.win wrapped response
-          if (data.contents && typeof data.contents === 'string') {
-            try {
-              data = JSON.parse(data.contents);
-            } catch (e) {
-              // If not wrapped, use as-is
-            }
-          }
-          
-          if (data && data.tamil) break;
-          throw new Error('Tamil text not found in response');
-        } catch (error) {
-          lastError = error;
-          console.warn('API fetch attempt failed for', apiUrl, error);
-        }
+      try {
+        const response = await fetch(targetUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        data = await response.json();
+      } catch (error) {
+        lastError = error;
+        console.error('API fetch failed for', targetUrl, error);
       }
 
       if (data && data.tamil) {
@@ -400,12 +379,14 @@
         return;
       }
 
+      btn.innerHTML = origText;
+      btn.disabled = false;
+
       console.error('API Error:', lastError);
       alert(
         `API request failed.\n\nPossible causes:\n` +
-        `- Your API does not allow cross-origin requests.\n` +
-        `- The proxy service is unavailable.\n\n` +
-        `Fix: Enable CORS in your API by adding "Access-Control-Allow-Origin: *".\n\n` +
+        `- The API endpoint is unavailable.\n` +
+        `- Network or server error occurred.\n\n` +
         `Details: ${lastError?.message || 'Unknown error'}`
       );
       btn.innerHTML = origText;
