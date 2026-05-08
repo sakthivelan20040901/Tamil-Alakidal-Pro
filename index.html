@@ -1,90 +1,131 @@
 <!DOCTYPE html>
 <!--
-  ╔══════════════════════════════════════════════════════╗
-  ║  UI FILE — alakidal_app.html                        ║
-  ║  All analysis logic lives in: alakidal_logic.js     ║
-  ║  This file handles only rendering and user events.  ║
-  ╚══════════════════════════════════════════════════════╝
-
-  BUG FIXES in this file:
-  #7  — Added full HTML skeleton (DOCTYPE, <html>, <head>, <body>) which
-        was completely missing — the file was a fragment that could not
-        stand alone as a page.
-  #8  — Added id="mainBody" to <body> so toggleDarkMode() can find it.
-  #9  — Added Google Fonts import for 'Mukta Malar' (used in CSS but
-        never loaded).
-  #10 — Replaced hardcoded local path
-          <script src="/home/sakthivelan/Desktop/Alagidal/alakidal_logic.js">
-        with a relative path  <script src="alakidal_logic.js"> so the
-        app works wherever the two files are co-located.
-  #11 — Added CDN import for html2pdf.js which was called in
-        downloadHistoryPdf() but never loaded, causing a ReferenceError.
-  #12 — Added Tailwind CSS CDN link (was in an HTML comment warning
-        but never actually included, so all tw- classes were unstyled).
-  #13 — copyResults() used `event` as a bare global which is undefined
-        in strict-mode / modern browsers when called via onclick="".
-        Changed to pass the button element explicitly: onclick="copyResults(this)".
-  #14 — Dark-mode classes were applied to #mainBody but the <table>,
-        <th>, <td> dark rules targeted .dark table etc., which required
-        the .dark class to be on an ancestor. Verified the body tag
-        carries id="mainBody" so the toggle works correctly.
-  #15 — History modal had no pointer to close on outside-click; added
-        backdrop click-handler.
+  UI FILE — alakidal_app.html
+  All analysis logic lives in: alakidal_logic.js
 -->
 <html lang="ta">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>அலகிடுதல் — Thirukkural Alakidal</title>
+  <title>திருக்குறள் அலகிடல் | வாய்பாடு | Thirukkural Alakidal Vaipadu Analysis Tool</title>
 
-  <!-- BUG FIX #9: Load Mukta Malar font (was referenced in CSS but never imported) -->
+  <meta name="description" content="திருக்குறள் அலகிடல் வாய்பாடு கணக்கீடு — அசை, சீர், வாய்பாடு முழு விளக்கம். Thirukkural Alakidal: Enter verse 1–1330 to get தேமா, கூவிளம், புளிமா, கருவிளம் vaipadu results instantly. Free tool for students &amp; teachers." />
+  <meta name="keywords" content="திருக்குறள் அலகிடல், வாய்பாடு, அசை, சீர், நேர் அசை, நிரை அசை, தேமா, கூவிளம், புளிமா, கருவிளம், தேமாங்காய், நாள், மலர், காசு, பிறப்பு, thirukkural alakidal, vaipadu, asai, seer, tamil prosody, ஈற்றசை, குற்றியலுகரம், alakidal tool, thirukkural meter, yaappilakanam, வெண்பா" />
+  <meta name="robots" content="index,follow" />
+  <meta name="author" content="Sakthivelan" />
+
+  <meta property="og:title" content="திருக்குறள் அலகிடல் வாய்பாடு | Thirukkural Alakidal Tool" />
+  <meta property="og:description" content="திருக்குறள் குறள் எண் 1–1330 உள்ளிட்டு அசை, வாய்பாடு முழுமையாக பெறுங்கள். Free Thirukkural prosody analysis — vaipadu, asai, seer breakdown." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ta_IN" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="திருக்குறள் அலகிடல் வாய்பாடு Tool" />
+  <meta name="twitter:description" content="Analyze Thirukkural prosody (அசை, வாய்பாடு) for each word instantly. Free tool for students and researchers." />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "திருக்குறள் அலகிடல் வாய்பாடு",
+    "alternateName": "Thirukkural Alakidal Vaipadu Tool",
+    "description": "Analyze Thirukkural prosody — அசை (asai), சீர் (seer), and வாய்பாடு (vaipadu) for any of the 1330 kurals. Supports நேர் / நிரை classification and all vaipadu names.",
+    "applicationCategory": "EducationApplication",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" },
+    "inLanguage": ["ta", "en"],
+    "keywords": "திருக்குறள் அலகிடல், வாய்பாடு, asai, vaipadu, thirukkural prosody"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "அலகிடல் என்றால் என்ன?", "acceptedAnswer": { "@type": "Answer", "text": "அலகிடல் என்பது தமிழ் யாப்பிலக்கணத்தில் ஒரு சொல்லை அசைகளாகப் பிரித்து, நேர் அல்லது நிரை என வகைப்படுத்தி, வாய்பாட்டைக் கண்டறியும் முறை." } },
+      { "@type": "Question", "name": "வாய்பாடு என்றால் என்ன?", "acceptedAnswer": { "@type": "Answer", "text": "வாய்பாடு என்பது சீரில் உள்ள அசைகளின் வரிசையை அடிப்படையாகக் கொண்டு கொடுக்கப்படும் பெயர். தேமா, கூவிளம், புளிமா, கருவிளம் ஆகியவை இரண்டசை வாய்பாடுகள்." } },
+      { "@type": "Question", "name": "நேர் அசை என்றால் என்ன?", "acceptedAnswer": { "@type": "Answer", "text": "ஒரு சீரில் ஒரே ஒரு உயிர் எழுத்து மட்டும் அமைந்தால் அது நேர் அசை எனப்படும்." } },
+      { "@type": "Question", "name": "திருக்குறள் எந்த வாய்பாட்டில் அமைந்துள்ளது?", "acceptedAnswer": { "@type": "Answer", "text": "திருக்குறள் குறள் வெண்பா என்னும் யாப்பில் அமைந்துள்ளது. ஒவ்வொரு குறளும் நான்கு சீர்களும் ஒரு ஈற்றுச்சீரும் கொண்டது." } }
+    ]
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "திருக்குறள் அலகிடல் எப்படி செய்வது?",
+    "description": "Step-by-step guide to perform Thirukkural Alakidal (prosody analysis)",
+    "step": [
+      { "@type": "HowToStep", "name": "குறள் உள்ளிடுக", "text": "குறள் எண்ணை 1 முதல் 1330 வரை உள்ளிடவும் அல்லது நேரடியாக குறட்பா உரையை ஒட்டவும்." },
+      { "@type": "HowToStep", "name": "அசை கண்டறிக", "text": "ஒவ்வொரு சீரையும் நேர் மற்றும் நிரை என வகைப்படுத்துங்கள்." },
+      { "@type": "HowToStep", "name": "வாய்பாடு பெறுக", "text": "அசைகளின் வரிசையை அடிப்படையாக வைத்து தேமா, கூவிளம் போன்ற வாய்பாட்டைக் கண்டறியுங்கள்." }
+    ]
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Mukta+Malar:wght@400;700;800&display=swap" rel="stylesheet" />
-
-  <!-- BUG FIX #12: Tailwind CSS CDN (was only in a comment, never included) -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- BUG FIX #11: html2pdf.js CDN (used in downloadHistoryPdf but was missing) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <style>
-    body {
-      font-family: 'Mukta Malar', sans-serif;
-      transition: background-color 0.3s ease, color 0.3s ease;
-      -webkit-tap-highlight-color: transparent;
-    }
+    body { font-family: 'Mukta Malar', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; -webkit-tap-highlight-color: transparent; }
     .glass { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 
-    /* ── Dark mode ───────────────────────────────────── */
     .dark { background: #0f172a !important; color: #f8fafc; }
     .dark .main-card   { background: rgba(30,41,59,0.98) !important; border-color: #334155; }
     .dark .fetch-panel { background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.95)) !important; border-color: #475569 !important; }
-    .dark label,
-    .dark h2           { color: #f1f5f9 !important; }
-    .dark textarea     { background: #1e293b; color: #f8fafc; border-color: #475569; }
-    .dark input        { background: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
-    .dark table        { background: #1e293b; color: #f1f5f9; }
-    .dark th           { background: #334155 !important; color: #38bdf8 !important; border-color: #475569; }
-    .dark td           { color: #cbd5e1 !important; border-color: #475569; }
-    .dark tr:hover     { background: #334155 !important; }
+    .dark label, .dark h2 { color: #f1f5f9 !important; }
+    .dark textarea { background: #1e293b; color: #f8fafc; border-color: #475569; }
+    .dark input { background: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
+    .dark table { background: #1e293b; color: #f1f5f9; }
+    .dark th { background: #334155 !important; color: #38bdf8 !important; border-color: #475569; }
+    .dark td { color: #cbd5e1 !important; border-color: #475569; }
+    .dark tr:hover { background: #334155 !important; }
     .dark .conclusion-box { background: #064e3b; color: #34d399; border-color: #059669; }
+    .dark .seo-section { background: rgba(30,41,59,0.98) !important; border-color: #334155 !important; }
+    .dark .seo-section h2 { color: #93c5fd !important; }
+    .dark .seo-section h3 { color: #7dd3fc !important; }
+    .dark .seo-section p, .dark .seo-section li { color: #cbd5e1 !important; }
+    .dark .seo-table th { background: #1e3a5f !important; color: #bfdbfe !important; }
+    .dark .seo-table td { color: #e2e8f0 !important; border-color: #334155 !important; }
+    .dark .seo-table tr:nth-child(even) td { background: #1e293b !important; }
+    .dark .vaipadu-card { background: rgba(15,23,42,0.9) !important; border-color: #334155 !important; }
+    .dark .vaipadu-card h4 { color: #7dd3fc !important; }
+    .dark .vaipadu-card .pattern, .dark .vaipadu-card .example { color: #94a3b8 !important; }
+    .dark .ner-box { background: rgba(30,58,138,0.3) !important; border-color: #3b82f6 !important; }
+    .dark .ner-box h3 { color: #93c5fd !important; }
+    .dark .nirai-box { background: rgba(124,45,18,0.3) !important; border-color: #f97316 !important; }
+    .dark .nirai-box h3 { color: #fdba74 !important; }
 
-    /* ── அசை badges ──────────────────────────────────── */
-    .asai-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      margin: 2px;
-      text-transform: uppercase;
-    }
+    .asai-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; margin: 2px; text-transform: uppercase; }
     .badge-ner   { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
     .badge-nirai { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
 
-    /* ── Mobile table scroll ─────────────────────────── */
+    /* SEO sections */
+    .seo-section { background: #fff; border-radius: 1.5rem; border: 1px solid #e2e8f0; transition: background 0.3s, border-color 0.3s; }
+    .seo-section h2 { color: #1e3a5f; font-size: 1.35rem; font-weight: 800; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e0e7ff; }
+    .seo-section h3 { color: #2563eb; font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; margin-top: 1.2rem; }
+    .seo-section p  { color: #374151; line-height: 1.85; margin-bottom: 0.75rem; font-size: 0.96rem; }
+    .seo-section ul { list-style: none; padding-left: 0; margin: 0.5rem 0; }
+    .seo-section li { color: #374151; line-height: 1.9; font-size: 0.94rem; padding-left: 1.5em; position: relative; }
+    .seo-section li::before { content: "›"; position: absolute; left: 0; color: #6366f1; font-weight: 900; font-size: 1.1em; }
+    .seo-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 0.6rem; }
+    .seo-table th { background: #eef2ff; color: #1e3a5f; font-weight: 700; padding: 10px 12px; border: 1px solid #c7d2fe; text-align: left; }
+    .seo-table td { padding: 9px 12px; border: 1px solid #e5e7eb; color: #374151; vertical-align: top; }
+    .seo-table tr:nth-child(even) td { background: #f9fafb; }
+    .vaipadu-card { background: #f8faff; border: 1px solid #e0e7ff; border-radius: 0.75rem; padding: 1rem; text-align: center; }
+    .vaipadu-card h4 { font-size: 1.1rem; font-weight: 800; color: #3730a3; margin: 0 0 0.2rem 0; }
+    .vaipadu-card .pattern { font-size: 0.77rem; color: #6b7280; }
+    .vaipadu-card .example { font-size: 0.8rem; color: #4b5563; margin-top: 0.3rem; font-style: italic; }
+    .ner-box   { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.75rem; padding: 1.1rem; }
+    .nirai-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 0.75rem; padding: 1.1rem; }
+    .ner-box h3 { color: #1e40af; margin-top: 0; }
+    .nirai-box h3 { color: #9a3412; margin-top: 0; }
+
     .custom-scroll::-webkit-scrollbar       { height: 4px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
@@ -95,34 +136,22 @@
   </style>
 </head>
 
-<!-- BUG FIX #7 + #8: <body> with id="mainBody" so toggleDarkMode() works -->
 <body id="mainBody" class="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 sm:p-8">
 
-  <!-- ── Action buttons (top-right) ─────────────────────── -->
+  <!-- Top-right action buttons -->
   <div class="fixed top-3 right-3 z-50 flex gap-2">
     <button onclick="downloadHistoryPdf()" title="Download History as PDF"
             class="bg-red-500/20 hover:bg-red-500/40 text-white p-2 rounded-full shadow-lg backdrop-blur-md transition-all">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-      </svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     </button>
     <button onclick="toggleHistory()" title="View History"
             class="bg-blue-500/20 hover:bg-blue-500/40 text-white p-2 rounded-full shadow-lg backdrop-blur-md transition-all relative">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-      </svg>
-      <span id="historyBadge"
-            class="absolute -top-1 -right-1 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 items-center justify-center hidden"></span>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span id="historyBadge" class="absolute -top-1 -right-1 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 items-center justify-center hidden"></span>
     </button>
     <button onclick="clearAll()" title="Clear All"
             class="bg-white/20 hover:bg-white/40 text-white p-2 rounded-full shadow-lg backdrop-blur-md transition-all">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-      </svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
     </button>
     <button onclick="toggleDarkMode()" id="modeToggle"
             class="bg-gray-900 text-white p-2 rounded-full shadow-lg hover:scale-110 transition-transform w-10 h-10 flex items-center justify-center">
@@ -130,39 +159,31 @@
     </button>
   </div>
 
-  <!-- ── Main card ───────────────────────────────────────── -->
+  <!-- Main card -->
   <div class="max-w-5xl mx-auto bg-white/95 main-card glass rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/30 transition-all duration-300">
-
-    <!-- Header -->
     <header class="bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white text-center p-6 sm:p-8">
       <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight">திருக்குறள் அலகிட்டு வாய்பாடு</h1>
-      
+      <p class="mt-2 text-indigo-200 text-sm sm:text-base font-medium">Thirukkural Alakidal &amp; Vaipadu Analysis Tool</p>
     </header>
 
-    <!-- Body -->
     <div class="p-4 sm:p-8">
-
-      <!-- Quick-action bar -->
+      <!-- Quick actions -->
       <div class="flex flex-col sm:flex-row gap-3 mb-6">
         <button onclick="loadExample()"
                 class="w-full bg-yellow-400 hover:bg-yellow-500 active:scale-95 text-black font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2">
           <span>📖</span> எடுத்துக்காட்டு
         </button>
-        <!-- BUG FIX #13: Pass `this` explicitly instead of relying on bare `event` global -->
         <button onclick="copyResults(this)"
                 class="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2">
           <span>📋</span> முடிவுகளை நகலெடு
         </button>
       </div>
 
-      <!-- Fetch from API -->
+      <!-- Fetch panel -->
       <div class="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200 fetch-panel">
         <label class="block text-lg font-bold text-blue-900 mb-3">குறள் எண்ணை உள்ளிடவும்</label>
         <div class="flex gap-3 flex-col sm:flex-row">
-          <input type="number"
-                 id="kuralNumber"
-                 min="1"
-                 max="1330"
+          <input type="number" id="kuralNumber" min="1" max="1330"
                  placeholder="1 – 1330 குறள் எண்"
                  class="flex-1 p-3 rounded-lg border-2 border-blue-300 focus:border-blue-600 focus:ring-0 text-lg font-medium transition-all bg-white"
                  oninput="hideKuralNumberError()" />
@@ -192,7 +213,6 @@
           <h2 class="text-xl sm:text-2xl font-extrabold text-gray-800">📊 முடிவுகள்</h2>
           <span id="wordCount" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold"></span>
         </div>
-
         <div class="overflow-x-auto rounded-xl shadow-inner border border-gray-100 custom-scroll">
           <table class="min-w-full bg-white">
             <thead class="bg-slate-50 text-gray-600">
@@ -206,47 +226,222 @@
             <tbody id="resultBody" class="divide-y divide-gray-50"></tbody>
           </table>
         </div>
-
-        <div id="conclusion"
-             class="mt-6 p-5 bg-green-50 border-l-4 border-green-500 rounded-xl text-green-900 text-lg font-bold text-center conclusion-box">
-        </div>
-
-        <p class="text-center text-xs text-slate-400 mt-4 sm:hidden">
-          அட்டவணையை நகர்த்தி மற்ற தகவல்களைக் காண்க ↔️
-        </p>
+        <div id="conclusion" class="mt-6 p-5 bg-green-50 border-l-4 border-green-500 rounded-xl text-green-900 text-lg font-bold text-center conclusion-box"></div>
+        <p class="text-center text-xs text-slate-400 mt-4 sm:hidden">அட்டவணையை நகர்த்தி மற்ற தகவல்களைக் காண்க ↔️</p>
       </div>
     </div>
   </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SEO CONTENT — Rich Tamil educational content for search ranking
+       ═══════════════════════════════════════════════════════════ -->
+  <div class="max-w-5xl mx-auto mt-8 space-y-6" id="seoContent">
+
+    <!-- 1. What is Alakidal -->
+    <section class="seo-section p-6 sm:p-8" aria-label="அலகிடல் விளக்கம்">
+      <h2>அலகிடல் என்றால் என்ன? | What is Thirukkural Alakidal?</h2>
+      <p>
+        <strong>அலகிடல்</strong> என்பது தமிழ் யாப்பிலக்கணத்தின் அடிப்படையான செயல்முறை. ஒரு சொல்லை அதன் உள்ளடங்கிய <strong>அசைகளாகப்</strong> பிரித்து, ஒவ்வொரு அசையும் <strong>நேர்</strong> அல்லது <strong>நிரை</strong> என வகைப்படுத்தி, இறுதியில் அந்தச் சீரின் <strong>வாய்பாட்டை</strong> கண்டறியும் முறையே அலகிடல் ஆகும்.
+      </p>
+      <p>
+        <strong>Alakidal</strong> is the process of Tamil prosodic analysis — breaking a சீர் (word unit) into its constituent அசைகள் (syllabic units), classifying each as <em>நேர் (Ner)</em> or <em>நிரை (Nirai)</em>, then deriving the <em>வாய்பாடு (Vaipadu / meter name)</em>. It is an essential skill for 10th–12th standard Tamil Board exams, TNPSC, TET, and graduate-level Tamil literature study.
+      </p>
+      <h3>அலகிடல் படிகள் — Step-by-Step Guide</h3>
+      <ul>
+        <li><strong>படி 1:</strong> சொல்லை ஒற்று (O), நெடில் (N), குறில் (K) என்ற அலகுகளாகப் பிரிக்கவும்.</li>
+        <li><strong>படி 2:</strong> அலகுகளை அசைகளாகத் தொகுக்கவும் — குறில் + அடுத்த அலகு = நிரை; தனி நெடில் அல்லது தனி குறில் = நேர்.</li>
+        <li><strong>படி 3:</strong> ஒவ்வொரு அசையையும் நேர் அல்லது நிரை என வகைப்படுத்தவும்.</li>
+        <li><strong>படி 4:</strong> அசைகளின் வரிசையை வைத்து வாய்பாட்டை அறிவீர் (தேமா, கூவிளம், புளிமா, கருவிளம்…).</li>
+        <li><strong>படி 5:</strong> கடைசிச் சீர் (ஈற்றுச்சீர்) ஆனால் நாள், மலர், காசு, பிறப்பு விதிகளைப் பயன்படுத்தவும்.</li>
+      </ul>
+    </section>
+
+    <!-- 2. Ner & Nirai -->
+    <section class="seo-section p-6 sm:p-8" aria-label="நேர் நிரை அசை விளக்கம்">
+      <h2>நேர் அசை மற்றும் நிரை அசை | Ner Asai &amp; Nirai Asai</h2>
+      <div class="grid sm:grid-cols-2 gap-4 mt-3">
+        <div class="ner-box">
+          <h3>🔵 நேர் அசை (Ner Asai)</h3>
+          <p>ஒரு அசையில் <strong>ஒரே ஒரு உயிர் எழுத்து</strong> மட்டும் இருந்தால் அது <strong>நேர் அசை</strong>. ஒற்று எழுத்துகள் எண்ணப்படுவதில்லை.</p>
+          <ul>
+            <li>நெடில் மட்டும்: <em>ஆ, கா, மா</em> → நேர்</li>
+            <li>குறில் + ஒற்று: <em>தல், வன்</em> → நேர்</li>
+            <li>தனி குறில்: <em>அ, க</em> → நேர்</li>
+          </ul>
+        </div>
+        <div class="nirai-box">
+          <h3>🟠 நிரை அசை (Nirai Asai)</h3>
+          <p>ஒரு அசையில் <strong>இரண்டு உயிர் எழுத்துகள்</strong> (இரு குறில்) இருந்தால் அது <strong>நிரை அசை</strong>.</p>
+          <ul>
+            <li>குறில் + குறில்: <em>எழு, பக</em> → நிரை</li>
+            <li>குறில் + குறில் + ஒற்று: <em>முதல்</em> → நிரை</li>
+            <li>இரு குறில் + ஒற்று: <em>அகர்</em> → நிரை</li>
+          </ul>
+        </div>
+      </div>
+      <p class="mt-4 text-sm text-gray-500 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+        💡 <strong>எளிய நினைவுக்குறிப்பு:</strong> அசையிலிருந்து ஒற்றுகளை நீக்கி, மீதமுள்ள உயிர்களை எண்ணுங்கள். <strong>1 உயிர் = நேர், 2 உயிர் = நிரை</strong>.
+      </p>
+    </section>
+
+    <!-- 3. Vaipadu Chart -->
+    <section class="seo-section p-6 sm:p-8" aria-label="வாய்பாடு அட்டவணை">
+      <h2>வாய்பாடு அட்டவணை | Complete Vaipadu Chart</h2>
+      <p>திருக்குறள் உட்பட தமிழ் வெண்பா யாப்பில் வரும் <strong>எட்டு வாய்பாடுகள் + நான்கு ஈற்றசை வாய்பாடுகள்:</strong></p>
+
+      <h3>இரண்டசை சீர் (2-Asai Vaipadu)</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="vaipadu-card"><h4>தேமா</h4><div class="pattern">நேர் + நேர்</div><div class="example">ஆதி, கால்</div></div>
+        <div class="vaipadu-card"><h4>புளிமா</h4><div class="pattern">நிரை + நேர்</div><div class="example">அகர, பகவன்</div></div>
+        <div class="vaipadu-card"><h4>கூவிளம்</h4><div class="pattern">நேர் + நிரை</div><div class="example">முதல, தேவர்</div></div>
+        <div class="vaipadu-card"><h4>கருவிளம்</h4><div class="pattern">நிரை + நிரை</div><div class="example">இலக்கு, எழுது</div></div>
+      </div>
+
+      <h3>மூவசை சீர் (3-Asai Vaipadu)</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="vaipadu-card"><h4>தேமாங்காய்</h4><div class="pattern">நேர் + நேர் + நேர்</div></div>
+        <div class="vaipadu-card"><h4>புளிமாங்காய்</h4><div class="pattern">நிரை + நேர் + நேர்</div></div>
+        <div class="vaipadu-card"><h4>கூவிளங்காய்</h4><div class="pattern">நேர் + நிரை + நேர்</div></div>
+        <div class="vaipadu-card"><h4>கருவிளங்காய்</h4><div class="pattern">நிரை + நிரை + நேர்</div></div>
+      </div>
+
+      <h3>ஈற்றசை வாய்பாடுகள் (Etrasai Vaipadu — Final Seer)</h3>
+      <div class="overflow-x-auto custom-scroll">
+        <table class="seo-table">
+          <thead>
+            <tr>
+              <th>வாய்பாடு</th>
+              <th>அசை வகை</th>
+              <th>எப்போது?</th>
+              <th>எடுத்துக்காட்டு</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>நாள்</strong></td><td>நேர் ஈற்று</td><td>சாதாரண நேர் அசையில் முடிந்தால்</td><td>உலகு, நலம், வாழ்க</td></tr>
+            <tr><td><strong>மலர்</strong></td><td>நிரை ஈற்று</td><td>சாதாரண நிரை அசையில் முடிந்தால்</td><td>இலக்கு, எழுத்து</td></tr>
+            <tr><td><strong>காசு</strong></td><td>நேர்பு ஈற்று</td><td>க,ச,ட,த,ப,ற + ு (குற்றியலுகரம்) + நேர் முன்னிலை</td><td>உலகு (உ+லகு), பகவு</td></tr>
+            <tr><td><strong>பிறப்பு</strong></td><td>நிரைபு ஈற்று</td><td>க,ச,ட,த,ப,ற + ு (குற்றியலுகரம்) + நிரை முன்னிலை</td><td>முதற்று, இலக்கு</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. Worked Example -->
+    <section class="seo-section p-6 sm:p-8" aria-label="அலகிடல் எடுத்துக்காட்டு குறள் 1">
+      <h2>அலகிடல் எடுத்துக்காட்டு | Worked Example — திருக்குறள் 1</h2>
+      <p>
+        <strong>குறட்பா:</strong> "அகர முதல எழுத்தெல்லாம் ஆதி / பகவன் முதற்றே உலகு"
+      </p>
+      <div class="overflow-x-auto custom-scroll">
+        <table class="seo-table">
+          <thead>
+            <tr><th>#</th><th>சீர்</th><th>அசை பிரிப்பு</th><th>நேர் / நிரை வரிசை</th><th>வாய்பாடு</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td><strong>அகர</strong></td><td>அக / ர</td><td>நிரை + நேர்</td><td><strong>புளிமா</strong></td></tr>
+            <tr><td>2</td><td><strong>முதல</strong></td><td>மு / தல</td><td>நேர் + நிரை</td><td><strong>கூவிளம்</strong></td></tr>
+            <tr><td>3</td><td><strong>எழுத்தெல்லாம்</strong></td><td>எழு / த்தெல் / லாம்</td><td>நிரை + நேர் + நேர்</td><td><strong>புளிமாங்காய்</strong></td></tr>
+            <tr><td>4</td><td><strong>ஆதி</strong></td><td>ஆ / தி</td><td>நேர் + நேர்</td><td><strong>தேமா</strong></td></tr>
+            <tr><td>5</td><td><strong>பகவன்</strong></td><td>பக / வன்</td><td>நிரை + நேர்</td><td><strong>புளிமா</strong></td></tr>
+            <tr><td>6</td><td><strong>முதற்றே</strong></td><td>மு / தற் / றே</td><td>நேர் + நேர் + நேர்</td><td><strong>தேமாங்காய்</strong></td></tr>
+            <tr><td>7 (ஈற்று)</td><td><strong>உலகு</strong></td><td>உ / லகு</td><td>நேர் + நேர்பு</td><td><strong>காசு</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-sm mt-4 text-indigo-700 bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+        🚀 மேலே உள்ள கருவியில் <strong>குறள் எண் 1</strong> உள்ளிட்டு Fetch அழுத்துங்கள் — இந்த முழு பகுப்பாய்வையும் தானாக பெறலாம்!
+      </p>
+    </section>
+
+    <!-- 5. Full Reference Table -->
+    <section class="seo-section p-6 sm:p-8" aria-label="முழு வாய்பாடு விளக்க அட்டவணை">
+      <h2>முழு வாய்பாடு விளக்க அட்டவணை | Full Vaipadu Reference Table</h2>
+      <div class="overflow-x-auto custom-scroll">
+        <table class="seo-table">
+          <thead>
+            <tr><th>வாய்பாடு</th><th>அசை வரிசை</th><th>வகை</th><th>நினைவுக்குறிப்பு</th><th>சீர் எடுத்துக்காட்டு</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>தேமா</strong></td><td>நேர் – நேர்</td><td>இரண்டசை</td><td>"தேன்மா" — இனிய ஒலி</td><td>ஆதி, கால், தேவன்</td></tr>
+            <tr><td><strong>புளிமா</strong></td><td>நிரை – நேர்</td><td>இரண்டசை</td><td>நிரையில் தொடங்கும்</td><td>அகர, பகவன், இயல்</td></tr>
+            <tr><td><strong>கூவிளம்</strong></td><td>நேர் – நிரை</td><td>இரண்டசை</td><td>நிரையில் முடியும்</td><td>முதல, தேவர், காலம்</td></tr>
+            <tr><td><strong>கருவிளம்</strong></td><td>நிரை – நிரை</td><td>இரண்டசை</td><td>இரு நிரை</td><td>எழுது, இலங்கை</td></tr>
+            <tr><td><strong>தேமாங்காய்</strong></td><td>நேர் – நேர் – நேர்</td><td>மூவசை</td><td>தேமா + காய்</td><td>ஆகாயம், காலங்கள்</td></tr>
+            <tr><td><strong>புளிமாங்காய்</strong></td><td>நிரை – நேர் – நேர்</td><td>மூவசை</td><td>புளிமா + காய்</td><td>எழுத்தெல்லாம்</td></tr>
+            <tr><td><strong>கூவிளங்காய்</strong></td><td>நேர் – நிரை – நேர்</td><td>மூவசை</td><td>கூவிளம் + காய்</td><td>முதற்றே</td></tr>
+            <tr><td><strong>கருவிளங்காய்</strong></td><td>நிரை – நிரை – நேர்</td><td>மூவசை</td><td>கருவிளம் + காய்</td><td>இலக்கியமே</td></tr>
+            <tr><td><strong>நாள்</strong></td><td>நேர் (ஈற்று)</td><td>ஈற்றசை</td><td>சாதாரண நேர் ஈற்று</td><td>நலம், வாழ்க</td></tr>
+            <tr><td><strong>மலர்</strong></td><td>நிரை (ஈற்று)</td><td>ஈற்றசை</td><td>சாதாரண நிரை ஈற்று</td><td>இலக்கு, குணம்</td></tr>
+            <tr><td><strong>காசு</strong></td><td>நேர்பு (ஈற்று)</td><td>ஈற்றசை குற்றியலுகரம்</td><td>க/ச/ட/த/ப/ற + ு, நேர் முன்னிலை</td><td>உலகு, பகவு</td></tr>
+            <tr><td><strong>பிறப்பு</strong></td><td>நிரைபு (ஈற்று)</td><td>ஈற்றசை குற்றியலுகரம்</td><td>க/ச/ட/த/ப/ற + ு, நிரை முன்னிலை</td><td>முதற்று</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. FAQ -->
+    <section class="seo-section p-6 sm:p-8" aria-label="அடிக்கடி கேட்கப்படும் கேள்விகள்">
+      <h2>அடிக்கடி கேட்கப்படும் கேள்விகள் | FAQ — Alakidal &amp; Vaipadu</h2>
+
+      <h3>Q: திருக்குறள் எந்த யாப்பில் அமைந்துள்ளது?</h3>
+      <p>திருக்குறள் <strong>குறள் வெண்பா</strong> என்னும் யாப்பில் அமைந்துள்ளது. முதல் அடி 4 சீர்களும், இரண்டாம் அடி 3 சீர்களும் (ஒரு ஈற்றுச்சீர் உட்பட) கொண்டது.</p>
+
+      <h3>Q: குற்றியலுகரம் என்றால் என்ன? (What is Kutriyalukar?)</h3>
+      <p><strong>குற்றியலுகரம்</strong> என்பது க, ச, ட, த, ப, ற ஆகிய ஆறு வல்லின மெய்களுக்குப் பிறகு வரும் <em>ு</em> கார ஒலி. இது முழு ஒரு மாத்திரை பெறாமல் அரை மாத்திரையாக ஒலிக்கும். ஈற்றுச் சீரில் இது வந்தால் வாய்பாடு <strong>காசு</strong> அல்லது <strong>பிறப்பு</strong> ஆகும்.</p>
+
+      <h3>Q: வாய்பாட்டை எளிதாக மனப்பாடம் செய்வது எப்படி?</h3>
+      <p>"<strong>தே-கூ-புளி-கரு</strong>" என்று நினைவில் வையுங்கள்: தேமா (நேர்+நேர்), கூவிளம் (நேர்+நிரை), புளிமா (நிரை+நேர்), கருவிளம் (நிரை+நிரை). <em>காய்</em> சேர்க்க மூவசை வாய்பாடுகள் கிடைக்கும்.</p>
+
+      <h3>Q: இந்த கருவி யாருக்கு உதவியாக இருக்கும்?</h3>
+      <p>10–12ஆம் வகுப்பு தமிழ் மாணவர்கள், TNPSC, TET தேர்வுகளுக்கு தயாரிப்பவர்கள், தமிழ் இலக்கண ஆசிரியர்கள், யாப்பிலக்கணம் ஆய்வு செய்பவர்கள் — அனைவருக்கும் இந்த <strong>Thirukkural Alakidal tool</strong> இலவசமாக உதவுகிறது.</p>
+
+      <h3>Q: ஒரு சீரில் எத்தனை அசைகள் இருக்கும்?</h3>
+      <p>பொதுவாக <strong>2 அல்லது 3 அசைகள்</strong> இருக்கும். இரண்டசை சீர்களுக்கு தேமா, கூவிளம், புளிமா, கருவிளம் என்று வாய்பாடு கிடைக்கும். மூவசை சீர்களுக்கு …காய் வாய்பாடுகள் கிடைக்கும்.</p>
+    </section>
+
+    <!-- 7. About -->
+    <section class="seo-section p-6 sm:p-8" aria-label="கருவி பற்றிய தகவல்">
+      <h2>இந்த கருவி பற்றி | About Alakidal Pro</h2>
+      <p>
+        இந்த <strong>திருக்குறள் அலகிடல் வாய்பாடு கருவி</strong> (Thirukkural Alakidal Vaipadu Analyzer) தமிழ் மாணவர்களுக்கும் ஆசிரியர்களுக்கும் ஆராய்ச்சியாளர்களுக்கும் இலவசமாக வழங்கப்படுகிறது.
+      </p>
+      <ul>
+        <li>✅ அனைத்து 1330 திருக்குறள்களுக்கும் ஆதரவு (API மூலம்)</li>
+        <li>✅ நேர் / நிரை அசை தானியங்கி கண்டறிதல்</li>
+        <li>✅ தேமா, கூவிளம், புளிமா, கருவிளம் + காய் வாய்பாடுகள்</li>
+        <li>✅ நாள், மலர், காசு, பிறப்பு — ஈற்றசை வாய்பாடு</li>
+        <li>✅ குற்றியலுகரம் கண்டறிதல்</li>
+        <li>✅ PDF ஆக பதிவிறக்கம் | Dark Mode | பகுப்பாய்வு வரலாறு</li>
+      </ul>
+      <p class="text-xs text-gray-400 mt-4">
+        ஆதாரம்: பொதுத்தேர்வு வழிகாட்டி — தமிழ் II (pp.28–30), யாப்பிலக்கணம். | Source: Tamil Board Exam Guide, Yaappilakanam, pp.28–30.
+      </p>
+    </section>
+
+  </div>
+  <!-- ═══ END SEO CONTENT ═══ -->
 
   <!-- Footer -->
   <div class="max-w-5xl mx-auto mt-6 px-2 text-white/80 text-xs text-center pb-10">
-    &copy; · 2026 Alakidal Pro · Designed & Developed by Sakthivelan
+    <p>&copy; 2026 Alakidal Pro · Designed &amp; Developed by Sakthivelan</p>
+    <p class="mt-1 text-white/50">திருக்குறள் அலகிடல் | வாய்பாடு | Thirukkural Alakidal Vaipadu | Tamil Prosody | தமிழ் யாப்பிலக்கணம் | Yaappilakanam | நேர் நிரை அசை | தேமா கூவிளம் புளிமா கருவிளம்</p>
   </div>
 
-  <!-- ── Confirmation Modal ───────────────────────────────── -->
+  <!-- Confirmation Modal -->
   <div id="confirmModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
       <div class="p-6 text-center">
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">உறுதிப்படுத்தவும்</h2>
-        <p id="confirmMessage" class="text-slate-600 dark:text-slate-300 text-base leading-relaxed">
-          நீக்க வேண்டுமா?
-        </p>
+        <h2 class="text-2xl font-bold text-slate-900 mb-3">உறுதிப்படுத்தவும்</h2>
+        <p id="confirmMessage" class="text-slate-600 text-base leading-relaxed">நீக்க வேண்டுமா?</p>
       </div>
-      <div class="bg-slate-50 dark:bg-slate-800 p-5 flex gap-3">
-        <button onclick="cancelConfirm()"
-                class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-bold py-3 rounded-xl transition">
-          இல்லை
-        </button>
-        <button id="confirmYesButton" onclick="confirmAction()"
-                class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition">
-          ஆம், நீக்குக
-        </button>
+      <div class="bg-slate-50 p-5 flex gap-3">
+        <button onclick="cancelConfirm()" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold py-3 rounded-xl transition">இல்லை</button>
+        <button id="confirmYesButton" onclick="confirmAction()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition">ஆம், நீக்குக</button>
       </div>
     </div>
   </div>
 
-  <!-- ── History Modal ──────────────────────────────────── -->
-  <!-- BUG FIX #15: Close modal on backdrop click -->
+  <!-- History Modal -->
   <div id="historyModal"
        class="hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
        onclick="handleModalBackdropClick(event)">
@@ -259,405 +454,164 @@
         <div id="historyList" class="space-y-3"></div>
       </div>
       <div class="bg-gray-100 p-4 flex gap-3">
-        <button onclick="clearHistoryConfirm()"
-                class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition">
-          🗑️ Clear All History
-        </button>
-        <button onclick="downloadHistoryPdf()"
-                class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition">
-          📥 Download as PDF
-        </button>
+        <button onclick="clearHistoryConfirm()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition">🗑️ Clear All History</button>
+        <button onclick="downloadHistoryPdf()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition">📥 Download as PDF</button>
       </div>
     </div>
   </div>
 
-  <!-- BUG FIX #10: Relative path instead of hardcoded /home/sakthivelan/... -->
   <script src="alakidal_logic.js"></script>
 
-  <!-- ── UI script ──────────────────────────────────────── -->
   <script>
-    // ── Helpers ─────────────────────────────────────────
-
-    /** Build one அசை badge element */
     function asaiBadge(type) {
       const cls = type === 'நிரை' ? 'badge-nirai' : 'badge-ner';
       return `<span class="asai-badge ${cls}">${type}</span>`;
     }
-
-    /** Append a row to the results table */
     function appendRow(seer) {
       const badges   = seer.asais.map(asaiBadge).join('');
-      const finalTag = seer.isFinal
-        ? ' <span class="text-xs text-gray-400">(ஈற்று)</span>'
-        : '';
-
+      const finalTag = seer.isFinal ? ' <span class="text-xs text-gray-400">(ஈற்று)</span>' : '';
       const tr = document.createElement('tr');
       tr.className = 'border-b border-gray-50 hover:bg-indigo-50/30 transition-colors';
       tr.innerHTML = `
-        <td class="py-4 px-4 font-bold text-gray-800 whitespace-nowrap">
-          ${seer.word}${finalTag}
-        </td>
-        <td class="py-4 px-4 text-red-500 font-bold tracking-wider whitespace-nowrap">
-          ${seer.split}
-        </td>
+        <td class="py-4 px-4 font-bold text-gray-800 whitespace-nowrap">${seer.word}${finalTag}</td>
+        <td class="py-4 px-4 text-red-500 font-bold tracking-wider whitespace-nowrap">${seer.split}</td>
         <td class="py-4 px-4 whitespace-nowrap">${badges}</td>
-        <td class="py-4 px-4 font-bold text-indigo-700 text-right whitespace-nowrap">
-          ${seer.vaipadu}
-        </td>
+        <td class="py-4 px-4 font-bold text-indigo-700 text-right whitespace-nowrap">${seer.vaipadu}</td>
       `;
       document.getElementById('resultBody').appendChild(tr);
     }
-
-    // ── History Management ───────────────────────────────
-
     function updateHistoryBadge() {
       const count = window.AlaKidal.getHistoryCount();
       const badge = document.getElementById('historyBadge');
       badge.textContent = count > 0 ? count : '';
-      // BUG FIX: use flex/hidden instead of display:flex/none string
       badge.classList.toggle('hidden', count === 0);
       badge.classList.toggle('flex',   count > 0);
     }
-
-    // ── API Integration ──────────────────────────────────
-
     function setKuralNumberError(message) {
       const errorEl = document.getElementById('kuralNumberError');
-      const input = document.getElementById('kuralNumber');
+      const input   = document.getElementById('kuralNumber');
       if (!errorEl || !input) return;
-
-      if (message) {
-        errorEl.textContent = message;
-        errorEl.classList.remove('hidden');
-        input.classList.add('border-red-500');
-        input.classList.remove('border-blue-300', 'focus:border-blue-600');
-      } else {
-        errorEl.textContent = '';
-        errorEl.classList.add('hidden');
-        input.classList.remove('border-red-500');
-        input.classList.add('border-blue-300', 'focus:border-blue-600');
-      }
+      if (message) { errorEl.textContent = message; errorEl.classList.remove('hidden'); input.classList.add('border-red-500'); input.classList.remove('border-blue-300'); }
+      else { errorEl.textContent = ''; errorEl.classList.add('hidden'); input.classList.remove('border-red-500'); input.classList.add('border-blue-300'); }
     }
-
-    function hideKuralNumberError() {
-      setKuralNumberError('');
-    }
-
+    function hideKuralNumberError() { setKuralNumberError(''); }
     async function fetchKuralFromApi() {
-      const input = document.getElementById('kuralNumber');
+      const input    = document.getElementById('kuralNumber');
       const kuralNum = parseInt(input.value);
       setKuralNumberError('');
-
-      if (!kuralNum || kuralNum < 1 || kuralNum > 1330) {
-        setKuralNumberError('தயவு செய்து 1 முதல் 1330 வரை உள்ள எண்ணை உள்ளிடவும்');
-        return;
-      }
-
-      const btn = document.querySelector('button[onclick*="fetchKuralFromApi"]');
+      if (!kuralNum || kuralNum < 1 || kuralNum > 1330) { setKuralNumberError('தயவு செய்து 1 முதல் 1330 வரை உள்ள எண்ணை உள்ளிடவும்'); return; }
+      const btn      = document.querySelector('button[onclick*="fetchKuralFromApi"]');
       const origText = btn.innerHTML;
-      btn.innerHTML = '⏳ Loading...';
-      btn.disabled = true;
-
-      const targetUrl = `https://thirukkural-api-jyle.onrender.com/tamil/${kuralNum}`;
-
-      let lastError = null;
-      let data = null;
-
+      btn.innerHTML  = '⏳ Loading...'; btn.disabled = true;
+      let lastError = null, data = null;
       try {
-        const response = await fetch(targetUrl);
+        const response = await fetch(`https://thirukkural-api-jyle.onrender.com/tamil/${kuralNum}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         data = await response.json();
-      } catch (error) {
-        lastError = error;
-        console.error('API fetch failed for', targetUrl, error);
-      }
-
+      } catch (error) { lastError = error; }
       if (data && data.tamil) {
         document.getElementById('kuralInput').value = data.tamil;
         btn.innerHTML = '✅ Loaded!';
         setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 1500);
         return;
       }
-
-      btn.innerHTML = origText;
-      btn.disabled = false;
-
-      console.error('API Error:', lastError);
-      alert(
-        `API request failed.\n\nPossible causes:\n` +
-        `- The API endpoint is unavailable.\n` +
-        `- Network or server error occurred.\n\n` +
-        `Details: ${lastError?.message || 'Unknown error'}`
-      );
-      btn.innerHTML = origText;
-      btn.disabled = false;
+      btn.innerHTML = origText; btn.disabled = false;
+      alert(`API request failed.\n\nDetails: ${lastError?.message || 'Unknown error'}`);
     }
-
     function toggleHistory() {
       const modal = document.getElementById('historyModal');
-      if (!modal) {
-        console.warn('toggleHistory: historyModal element not found');
-        return;
-      }
+      if (!modal) return;
       modal.classList.toggle('hidden');
       if (!modal.classList.contains('hidden')) displayHistory();
     }
-
-    // BUG FIX #15: Close only when clicking the backdrop, not the inner card
     function handleModalBackdropClick(e) {
       const modal = document.getElementById('historyModal');
       if (modal && e.target === modal) toggleHistory();
     }
-
     function displayHistory() {
-      const history = window.AlaKidal.getHistory();
+      const history     = window.AlaKidal.getHistory();
       const historyList = document.getElementById('historyList');
       historyList.innerHTML = '';
-
-      if (history.length === 0) {
-        historyList.innerHTML =
-          '<p class="text-gray-500 text-center py-8">வரலாறு காலியாக உள்ளது (History is empty)</p>';
-        return;
-      }
-
+      if (history.length === 0) { historyList.innerHTML = '<p class="text-gray-500 text-center py-8">வரலாறு காலியாக உள்ளது</p>'; return; }
       history.forEach((entry, idx) => {
         const date      = new Date(entry.timestamp).toLocaleString('ta-IN');
-        const summary   = entry.summary;
-        const kuralText = entry.kuralText.substring(0, 50) +
-                          (entry.kuralText.length > 50 ? '...' : '');
-
+        const kuralText = entry.kuralText.substring(0, 50) + (entry.kuralText.length > 50 ? '...' : '');
         const item = document.createElement('div');
         item.className = 'bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition';
         item.innerHTML = `
           <div class="flex justify-between items-start mb-2">
-            <div class="flex-1">
-              <p class="font-bold text-gray-800">${kuralText}</p>
-              <p class="text-xs text-gray-500 mt-1">📅 ${date}</p>
-            </div>
-            <button onclick="loadFromHistory(${idx})"
-                    class="text-blue-600 hover:text-blue-800 font-bold text-sm whitespace-nowrap ml-2">↩️ Load</button>
+            <div class="flex-1"><p class="font-bold text-gray-800">${kuralText}</p><p class="text-xs text-gray-500 mt-1">📅 ${date}</p></div>
+            <button onclick="loadFromHistory(${idx})" class="text-blue-600 hover:text-blue-800 font-bold text-sm whitespace-nowrap ml-2">↩️ Load</button>
           </div>
-          <div class="text-xs text-gray-600">
-            சீர்: ${summary.totalSeers} | நேர்: ${summary.nearCount} | நிரை: ${summary.niraiCount}
-          </div>
+          <div class="text-xs text-gray-600">சீர்: ${entry.summary.totalSeers} | நேர்: ${entry.summary.nearCount} | நிரை: ${entry.summary.niraiCount}</div>
         `;
         historyList.appendChild(item);
       });
     }
-
     function loadFromHistory(idx) {
       const history = window.AlaKidal.getHistory();
-      if (idx >= 0 && idx < history.length) {
-        document.getElementById('kuralInput').value = history[idx].kuralText;
-        toggleHistory();
-        runAnalysis();
-      }
+      if (idx >= 0 && idx < history.length) { document.getElementById('kuralInput').value = history[idx].kuralText; toggleHistory(); runAnalysis(); }
     }
-
     let pendingConfirmCallback = null;
-
     function showConfirm(message, callback) {
       const modal = document.getElementById('confirmModal');
-      const messageEl = document.getElementById('confirmMessage');
-      const yesButton = document.getElementById('confirmYesButton');
-      if (!modal || !messageEl || !yesButton) return;
-
-      messageEl.textContent = message;
+      document.getElementById('confirmMessage').textContent = message;
       pendingConfirmCallback = callback;
       modal.classList.remove('hidden');
-      yesButton.focus();
+      document.getElementById('confirmYesButton').focus();
     }
-
-    function cancelConfirm() {
-      pendingConfirmCallback = null;
-      document.getElementById('confirmModal')?.classList.add('hidden');
-    }
-
-    function confirmAction() {
-      if (typeof pendingConfirmCallback === 'function') {
-        pendingConfirmCallback();
-      }
-      cancelConfirm();
-    }
-
+    function cancelConfirm() { pendingConfirmCallback = null; document.getElementById('confirmModal')?.classList.add('hidden'); }
+    function confirmAction() { if (typeof pendingConfirmCallback === 'function') pendingConfirmCallback(); cancelConfirm(); }
     function clearHistoryConfirm() {
-      showConfirm(
-        'நிச்சயமாக வரலாறை நீக்க விரும்புகிறீர்களா? (Are you sure you want to clear all history?)',
-        () => {
-          window.AlaKidal.clearHistory();
-          updateHistoryBadge();
-          displayHistory();
-        }
-      );
+      showConfirm('நிச்சயமாக வரலாறை நீக்க விரும்புகிறீர்களா?', () => { window.AlaKidal.clearHistory(); updateHistoryBadge(); displayHistory(); });
     }
-
     function downloadHistoryPdf() {
       const history = window.AlaKidal.getHistory();
-      if (history.length === 0) {
-        alert('வரலாறு காலியாக உள்ளது (History is empty)');
-        return;
-      }
-
+      if (history.length === 0) { alert('வரலாறு காலியாக உள்ளது'); return; }
       const element = document.createElement('div');
-      element.style.fontFamily = "'Mukta Malar', sans-serif";
-      element.style.padding    = '20px';
-      element.style.lineHeight = '1.8';
-
-      let html = `
-        <div style="text-align:center;margin-bottom:30px;border-bottom:3px solid #2d3748;padding-bottom:15px;">
-          <h1 style="color:#2d3748;font-size:28px;margin:0;">அலகிடுதல் வரலாறு</h1>
-          <p style="color:#718096;font-size:14px;margin:10px 0 0 0;">Alakidal Analysis History</p>
-          <p style="color:#a0aec0;font-size:12px;margin:5px 0 0 0;">
-            வெளியிடப்பட்ட: ${new Date().toLocaleString('ta-IN')}
-          </p>
-        </div>
-      `;
-
+      element.style.fontFamily = "'Mukta Malar', sans-serif"; element.style.padding = '20px'; element.style.lineHeight = '1.8';
+      let html = `<div style="text-align:center;margin-bottom:30px;border-bottom:3px solid #2d3748;padding-bottom:15px;"><h1 style="color:#2d3748;font-size:28px;margin:0;">அலகிடுதல் வரலாறு</h1><p style="color:#a0aec0;font-size:12px;">${new Date().toLocaleString('ta-IN')}</p></div>`;
       history.forEach((entry, idx) => {
         const date = new Date(entry.timestamp).toLocaleString('ta-IN');
-        html += `
-          <div style="page-break-inside:avoid;margin-bottom:25px;border:2px solid #e2e8f0;padding:15px;border-radius:8px;background:#f7fafc;">
-            <h3 style="color:#2d3748;margin:0 0 12px 0;font-size:16px;border-bottom:2px solid #cbd5e1;padding-bottom:8px;">
-              பகுப்பு #${idx + 1}
-            </h3>
-            <div style="margin-bottom:12px;">
-              <p style="color:#2d3748;margin:5px 0;font-size:13px;font-weight:bold;">📜 குறட்பா:</p>
-              <p style="color:#4a5568;margin:5px 0 0 0;font-size:13px;padding:8px;background:white;border-left:3px solid #4299e1;padding-left:12px;">
-                ${entry.kuralText}
-              </p>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:12px;">
-              <div>
-                <p style="color:#2d3748;margin:0;font-size:12px;font-weight:bold;">📅 தேதி:</p>
-                <p style="color:#4a5568;margin:3px 0 0 0;font-size:12px;">${date}</p>
-              </div>
-              <div>
-                <p style="color:#2d3748;margin:0;font-size:12px;font-weight:bold;">✅ முடிவு:</p>
-                <p style="color:#038c7f;margin:3px 0 0 0;font-size:12px;font-weight:bold;">${entry.summary.finalVaipadu}</p>
-              </div>
-            </div>
-            <div style="background:#edf2f7;padding:10px;border-radius:5px;margin-bottom:15px;">
-              <p style="color:#2d3748;margin:0 0 8px 0;font-size:12px;font-weight:bold;">📊 சீர் குறிப்பு:</p>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:12px;">
-                <div><span style="color:#718096;">மொத்தம்:</span> <b>${entry.summary.totalSeers}</b></div>
-                <div><span style="color:#718096;">நேர்:</span> <b>${entry.summary.nearCount}</b></div>
-                <div><span style="color:#718096;">நிரை:</span> <b>${entry.summary.niraiCount}</b></div>
-              </div>
-            </div>
-            <table style="width:100%;border-collapse:collapse;font-size:12px;background:white;">
-              <thead>
-                <tr style="background:#2d3748;color:white;">
-                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">சீர்</th>
-                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">பிரித்தல்</th>
-                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">அசை</th>
-                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">வாய்பாடு</th>
-                </tr>
-              </thead>
-              <tbody>
-        `;
-        entry.seers.forEach((seer, i) => {
-          const rowBg  = i % 2 === 0 ? '#f7fafc' : 'white';
-          const asaiHtml = seer.asais.map(asai => {
-            const bg  = asai === 'நிரை' ? '#ffedd5' : '#dbeafe';
-            const col = asai === 'நிரை' ? '#9a3412' : '#1e40af';
-            return `<span style="display:inline-block;background:${bg};color:${col};padding:3px 6px;border-radius:3px;font-size:11px;margin-right:4px;font-weight:bold;">${asai}</span>`;
-          }).join('');
-          const finalTag = seer.isFinal
-            ? ' <span style="color:#a0aec0;font-size:11px;">(ஈற்று)</span>' : '';
-          html += `
-            <tr style="background:${rowBg};">
-              <td style="border:1px solid #e2e8f0;padding:8px;font-weight:bold;color:#2d3748;">${seer.word}${finalTag}</td>
-              <td style="border:1px solid #e2e8f0;padding:8px;color:#c53030;font-weight:bold;">${seer.split}</td>
-              <td style="border:1px solid #e2e8f0;padding:8px;">${asaiHtml}</td>
-              <td style="border:1px solid #e2e8f0;padding:8px;color:#2c5282;font-weight:bold;">${seer.vaipadu}</td>
-            </tr>
-          `;
-        });
-        html += `</tbody></table></div>`;
+        html += `<div style="page-break-inside:avoid;margin-bottom:25px;border:2px solid #e2e8f0;padding:15px;border-radius:8px;background:#f7fafc;"><h3 style="color:#2d3748;margin:0 0 8px 0;">பகுப்பு #${idx + 1}</h3><p style="color:#4a5568;font-size:13px;">${entry.kuralText}</p><p style="font-size:12px;color:#718096;">📅 ${date} | ✅ ${entry.summary.finalVaipadu} | சீர்: ${entry.summary.totalSeers}</p></div>`;
       });
-
       element.innerHTML = html;
-
-      html2pdf().set({
-        margin    : 10,
-        filename  : 'Alakidal_History_' + new Date().toISOString().split('T')[0] + '.pdf',
-        image     : { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF     : { orientation: 'portrait', unit: 'mm', format: 'a4' },
-      }).from(element).save();
+      html2pdf().set({ margin: 10, filename: 'Alakidal_History_' + new Date().toISOString().split('T')[0] + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' } }).from(element).save();
     }
-
-    // ── Main analysis entry point ────────────────────────
-
     function runAnalysis() {
       const input = document.getElementById('kuralInput').value.trim();
       if (!input) return;
-
       const { seers, summary } = window.AlaKidal.analyseKural(input);
-
       window.AlaKidal.addToHistory(input, { seers, summary });
       updateHistoryBadge();
-
       document.getElementById('resultBody').innerHTML = '';
       seers.forEach(appendRow);
-
-      document.getElementById('wordCount').textContent = `${summary.totalSeers} சீர்கள்`;
-      document.getElementById('conclusion').textContent =
-        `இக்குறட்பா '${summary.finalVaipadu}' என்னும் வாய்பாட்டில் முடிந்துள்ளது.`;
-
+      document.getElementById('wordCount').textContent  = `${summary.totalSeers} சீர்கள்`;
+      document.getElementById('conclusion').textContent = `இக்குறட்பா '${summary.finalVaipadu}' என்னும் வாய்பாட்டில் முடிந்துள்ளது.`;
       document.getElementById('resultsArea').classList.remove('hidden');
-
-      if (window.innerWidth < 768) {
-        document.getElementById('resultsArea').scrollIntoView({ behavior: 'smooth' });
-      }
+      if (window.innerWidth < 768) document.getElementById('resultsArea').scrollIntoView({ behavior: 'smooth' });
     }
-
-    // ── UI controls ──────────────────────────────────────
-
     function toggleDarkMode() {
-      // BUG FIX #8: targets #mainBody which now correctly exists on <body>
       const body = document.getElementById('mainBody');
       body.classList.toggle('dark');
-      document.getElementById('modeIcon').textContent =
-        body.classList.contains('dark') ? '☀️' : '🌙';
+      document.getElementById('modeIcon').textContent = body.classList.contains('dark') ? '☀️' : '🌙';
     }
-
     function loadExample() {
-      document.getElementById('kuralInput').value =
-        'அகர முதல எழுத்தெல்லாம் ஆதி\nபகவன் முதற்றே உலகு';
+      document.getElementById('kuralInput').value = 'அகர முதல எழுத்தெல்லாம் ஆதி\nபகவன் முதற்றே உலகு';
       runAnalysis();
     }
-
     function clearAll() {
       document.getElementById('kuralInput').value = '';
       document.getElementById('resultsArea').classList.add('hidden');
     }
-
-    // BUG FIX #13: Accept the button element as a parameter
     function copyResults(btn) {
       const text = document.getElementById('resultsArea').innerText;
       const orig = btn.innerHTML;
-
-      const doFallback = () => {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      };
-
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).catch(doFallback);
-      } else {
-        doFallback();
-      }
-
+      const doFallback = () => { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).catch(doFallback); else doFallback();
       btn.innerHTML = '✅ நகலெடுக்கப்பட்டது!';
       setTimeout(() => (btn.innerHTML = orig), 2000);
     }
-
-    // Initialize history badge on page load
     window.addEventListener('DOMContentLoaded', updateHistoryBadge);
   </script>
 </body>
