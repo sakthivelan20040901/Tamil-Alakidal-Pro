@@ -360,6 +360,7 @@
 
       const targetUrl = `https://thirukkural-api-jyle.onrender.com/tamil/${kuralNum}`;
       const proxyBuilders = [
+        url => `https://YOUR_WORKER_URL.workers.dev/?url=${encodeURIComponent(url)}`,
         url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`,
         url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
         url => url,
@@ -377,7 +378,11 @@
           
           // Handle allorigins.win wrapped response
           if (data.contents && typeof data.contents === 'string') {
-            data = JSON.parse(data.contents);
+            try {
+              data = JSON.parse(data.contents);
+            } catch (e) {
+              // If not wrapped, use as-is
+            }
           }
           
           if (data && data.tamil) break;
