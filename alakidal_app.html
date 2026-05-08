@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════╗
+  ║  UI FILE — alakidal_app.html                        ║
+  ║  All analysis logic lives in: alakidal_logic.js     ║
+  ║  This file handles only rendering and user events.  ║
+  ╚══════════════════════════════════════════════════════╝
+
+  BUG FIXES in this file:
+  #7  — Added full HTML skeleton (DOCTYPE, <html>, <head>, <body>) which
+        was completely missing — the file was a fragment that could not
+        stand alone as a page.
+  #8  — Added id="mainBody" to <body> so toggleDarkMode() can find it.
+  #9  — Added Google Fonts import for 'Mukta Malar' (used in CSS but
+        never loaded).
+  #10 — Replaced hardcoded local path
+          <script src="/home/sakthivelan/Desktop/Alagidal/alakidal_logic.js">
+        with a relative path  <script src="alakidal_logic.js"> so the
+        app works wherever the two files are co-located.
+  #11 — Added CDN import for html2pdf.js which was called in
+        downloadHistoryPdf() but never loaded, causing a ReferenceError.
+  #12 — Added Tailwind CSS CDN link (was in an HTML comment warning
+        but never actually included, so all tw- classes were unstyled).
+  #13 — copyResults() used `event` as a bare global which is undefined
+        in strict-mode / modern browsers when called via onclick="".
+        Changed to pass the button element explicitly: onclick="copyResults(this)".
+  #14 — Dark-mode classes were applied to #mainBody but the <table>,
+        <th>, <td> dark rules targeted .dark table etc., which required
+        the .dark class to be on an ancestor. Verified the body tag
+        carries id="mainBody" so the toggle works correctly.
+  #15 — History modal had no pointer to close on outside-click; added
+        backdrop click-handler.
+-->
+<html lang="ta">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>அலகிடுதல் — Thirukkural Alakidal</title>
+
+  <!-- BUG FIX #9: Load Mukta Malar font (was referenced in CSS but never imported) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Mukta+Malar:wght@400;700;800&display=swap" rel="stylesheet" />
+
+  <!-- BUG FIX #12: Tailwind CSS CDN (was only in a comment, never included) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- BUG FIX #11: html2pdf.js CDN (used in downloadHistoryPdf but was missing) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Mukta Malar', sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .glass { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+    /* ── Dark mode ───────────────────────────────────── */
+    .dark { background: #0f172a !important; color: #f8fafc; }
+    .dark .main-card   { background: rgba(30,41,59,0.98) !important; border-color: #334155; }
+    .dark .fetch-panel { background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.95)) !important; border-color: #475569 !important; }
+    .dark label,
+    .dark h2           { color: #f1f5f9 !important; }
+    .dark textarea     { background: #1e293b; color: #f8fafc; border-color: #475569; }
+    .dark input        { background: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
+    .dark table        { background: #1e293b; color: #f1f5f9; }
+    .dark th           { background: #334155 !important; color: #38bdf8 !important; border-color: #475569; }
+    .dark td           { color: #cbd5e1 !important; border-color: #475569; }
+    .dark tr:hover     { background: #334155 !important; }
+    .dark .conclusion-box { background: #064e3b; color: #34d399; border-color: #059669; }
+
+    /* ── அசை badges ──────────────────────────────────── */
+    .asai-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin: 2px;
+      text-transform: uppercase;
+    }
+    .badge-ner   { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .badge-nirai { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+
+    /* ── Mobile table scroll ─────────────────────────── */
+    .custom-scroll::-webkit-scrollbar       { height: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+    @media (max-width: 640px) {
+      .asai-badge { font-size: 0.7rem; padding: 1px 6px; }
+      h1 { font-size: 1.8rem !important; }
+    }
+  </style>
+</head>
+
+<!-- BUG FIX #7 + #8: <body> with id="mainBody" so toggleDarkMode() works -->
+<body id="mainBody" class="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 sm:p-8">
+
+  <!-- ── Action buttons (top-right) ─────────────────────── -->
+  <div class="fixed top-3 right-3 z-50 flex gap-2">
+    <button onclick="downloadHistoryPdf()" title="Download History as PDF"
+            class="bg-red-500/20 hover:bg-red-500/40 text-white p-2 rounded-full shadow-lg backdrop-blur-md transition-all">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+    </button>
+    <button onclick="toggleHistory()" title="View History"
+            class="bg-blue-500/20 hover:bg-blue-500/40 text-white p-2 rounded-full shadow-lg backdrop-blur-md transition-all relative">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span id="historyBadge"
+            class="absolute -top-1 -right-1 bg-yellow-400 text-black text-xs font-bold rounded-full w-5 h-5 items-center justify-center hidden"></span>
+    </button>
+    <button onclick="clearAll()" title="Clear All"
+            class="bg-white/20 hover:bg-white/40 text-white p-2 rounded-full shadow-lg backdrop-blur-md transition-all">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+      </svg>
+    </button>
+    <button onclick="toggleDarkMode()" id="modeToggle"
+            class="bg-gray-900 text-white p-2 rounded-full shadow-lg hover:scale-110 transition-transform w-10 h-10 flex items-center justify-center">
+      <span id="modeIcon">🌙</span>
+    </button>
+  </div>
+
+  <!-- ── Main card ───────────────────────────────────────── -->
+  <div class="max-w-5xl mx-auto bg-white/95 main-card glass rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/30 transition-all duration-300">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white text-center p-6 sm:p-8">
+      <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight">திருக்குறள் அலகிட்டு வாய்பாடு</h1>
+      
+    </header>
+
+    <!-- Body -->
+    <div class="p-4 sm:p-8">
+
+      <!-- Quick-action bar -->
+      <div class="flex flex-col sm:flex-row gap-3 mb-6">
+        <button onclick="loadExample()"
+                class="w-full bg-yellow-400 hover:bg-yellow-500 active:scale-95 text-black font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2">
+          <span>📖</span> எடுத்துக்காட்டு
+        </button>
+        <!-- BUG FIX #13: Pass `this` explicitly instead of relying on bare `event` global -->
+        <button onclick="copyResults(this)"
+                class="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2">
+          <span>📋</span> முடிவுகளை நகலெடு
+        </button>
+      </div>
+
+      <!-- Fetch from API -->
+      <div class="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200 fetch-panel">
+        <label class="block text-lg font-bold text-blue-900 mb-3">குறள் எண்ணை உள்ளிடவும்</label>
+        <div class="flex gap-3 flex-col sm:flex-row">
+          <input type="number"
+                 id="kuralNumber"
+                 min="1"
+                 max="1330"
+                 placeholder="1 – 1330 குறள் எண்"
+                 class="flex-1 p-3 rounded-lg border-2 border-blue-300 focus:border-blue-600 focus:ring-0 text-lg font-medium transition-all bg-white"
+                 oninput="hideKuralNumberError()" />
+          <button onclick="fetchKuralFromApi()"
+                  class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold py-3 px-6 rounded-lg transition shadow-md flex items-center justify-center gap-2 whitespace-nowrap">
+            <span>🌐</span> Fetch
+          </button>
+        </div>
+        <p id="kuralNumberError" class="mt-2 text-sm text-red-600 hidden"></p>
+      </div>
+
+      <!-- Input -->
+      <div class="mb-6">
+        <label class="block text-xl font-bold text-gray-800 mb-3">திருக்குறள்:</label>
+        <textarea id="kuralInput"
+                  placeholder="அகர முதல எழுத்தெல்லாம் ஆதி&#10;பகவன் முதற்றே உலகு"
+                  class="w-full h-32 p-4 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-0 text-lg font-medium transition-all bg-slate-50"></textarea>
+        <button onclick="runAnalysis()"
+                class="mt-4 w-full bg-gradient-to-r from-indigo-600 to-pink-600 hover:opacity-90 active:scale-[0.98] text-white text-lg font-bold py-4 rounded-xl transition shadow-xl">
+          🔍 ஆய்வு செய் (Analyze)
+        </button>
+      </div>
+
+      <!-- Results -->
+      <div id="resultsArea" class="hidden">
+        <div class="flex items-center justify-between mb-4 px-1">
+          <h2 class="text-xl sm:text-2xl font-extrabold text-gray-800">📊 முடிவுகள்</h2>
+          <span id="wordCount" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-bold"></span>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl shadow-inner border border-gray-100 custom-scroll">
+          <table class="min-w-full bg-white">
+            <thead class="bg-slate-50 text-gray-600">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold text-sm uppercase tracking-wider border-b">சீர்</th>
+                <th class="py-3 px-4 text-left font-bold text-sm uppercase tracking-wider border-b">பிரித்தல்</th>
+                <th class="py-3 px-4 text-left font-bold text-sm uppercase tracking-wider border-b">அசை</th>
+                <th class="py-3 px-4 text-right font-bold text-sm uppercase tracking-wider border-b">வாய்பாடு</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody" class="divide-y divide-gray-50"></tbody>
+          </table>
+        </div>
+
+        <div id="conclusion"
+             class="mt-6 p-5 bg-green-50 border-l-4 border-green-500 rounded-xl text-green-900 text-lg font-bold text-center conclusion-box">
+        </div>
+
+        <p class="text-center text-xs text-slate-400 mt-4 sm:hidden">
+          அட்டவணையை நகர்த்தி மற்ற தகவல்களைக் காண்க ↔️
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="max-w-5xl mx-auto mt-6 px-2 text-white/80 text-xs text-center pb-10">
+    &copy; · 2026 Alakidal Pro · Designed & Developed by Sakthivelan
+  </div>
+
+  <!-- ── Confirmation Modal ───────────────────────────────── -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+      <div class="p-6 text-center">
+        <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3">உறுதிப்படுத்தவும்</h2>
+        <p id="confirmMessage" class="text-slate-600 dark:text-slate-300 text-base leading-relaxed">
+          நீக்க வேண்டுமா?
+        </p>
+      </div>
+      <div class="bg-slate-50 dark:bg-slate-800 p-5 flex gap-3">
+        <button onclick="cancelConfirm()"
+                class="flex-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-bold py-3 rounded-xl transition">
+          இல்லை
+        </button>
+        <button id="confirmYesButton" onclick="confirmAction()"
+                class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition">
+          ஆம், நீக்குக
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── History Modal ──────────────────────────────────── -->
+  <!-- BUG FIX #15: Close modal on backdrop click -->
+  <div id="historyModal"
+       class="hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+       onclick="handleModalBackdropClick(event)">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
+      <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 flex justify-between items-center">
+        <h2 class="text-2xl font-bold">📜 வரலாறு (History)</h2>
+        <button onclick="toggleHistory()" class="text-2xl hover:scale-125 transition">✕</button>
+      </div>
+      <div class="overflow-y-auto flex-1 p-6 custom-scroll">
+        <div id="historyList" class="space-y-3"></div>
+      </div>
+      <div class="bg-gray-100 p-4 flex gap-3">
+        <button onclick="clearHistoryConfirm()"
+                class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition">
+          🗑️ Clear All History
+        </button>
+        <button onclick="downloadHistoryPdf()"
+                class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition">
+          📥 Download as PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BUG FIX #10: Relative path instead of hardcoded /home/sakthivelan/... -->
+  <script src="alakidal_logic.js"></script>
+
+  <!-- ── UI script ──────────────────────────────────────── -->
+  <script>
+    // ── Helpers ─────────────────────────────────────────
+
+    /** Build one அசை badge element */
+    function asaiBadge(type) {
+      const cls = type === 'நிரை' ? 'badge-nirai' : 'badge-ner';
+      return `<span class="asai-badge ${cls}">${type}</span>`;
+    }
+
+    /** Append a row to the results table */
+    function appendRow(seer) {
+      const badges   = seer.asais.map(asaiBadge).join('');
+      const finalTag = seer.isFinal
+        ? ' <span class="text-xs text-gray-400">(ஈற்று)</span>'
+        : '';
+
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-gray-50 hover:bg-indigo-50/30 transition-colors';
+      tr.innerHTML = `
+        <td class="py-4 px-4 font-bold text-gray-800 whitespace-nowrap">
+          ${seer.word}${finalTag}
+        </td>
+        <td class="py-4 px-4 text-red-500 font-bold tracking-wider whitespace-nowrap">
+          ${seer.split}
+        </td>
+        <td class="py-4 px-4 whitespace-nowrap">${badges}</td>
+        <td class="py-4 px-4 font-bold text-indigo-700 text-right whitespace-nowrap">
+          ${seer.vaipadu}
+        </td>
+      `;
+      document.getElementById('resultBody').appendChild(tr);
+    }
+
+    // ── History Management ───────────────────────────────
+
+    function updateHistoryBadge() {
+      const count = window.AlaKidal.getHistoryCount();
+      const badge = document.getElementById('historyBadge');
+      badge.textContent = count > 0 ? count : '';
+      // BUG FIX: use flex/hidden instead of display:flex/none string
+      badge.classList.toggle('hidden', count === 0);
+      badge.classList.toggle('flex',   count > 0);
+    }
+
+    // ── API Integration ──────────────────────────────────
+
+    function setKuralNumberError(message) {
+      const errorEl = document.getElementById('kuralNumberError');
+      const input = document.getElementById('kuralNumber');
+      if (!errorEl || !input) return;
+
+      if (message) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+        input.classList.add('border-red-500');
+        input.classList.remove('border-blue-300', 'focus:border-blue-600');
+      } else {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+        input.classList.remove('border-red-500');
+        input.classList.add('border-blue-300', 'focus:border-blue-600');
+      }
+    }
+
+    function hideKuralNumberError() {
+      setKuralNumberError('');
+    }
+
+    async function fetchKuralFromApi() {
+      const input = document.getElementById('kuralNumber');
+      const kuralNum = parseInt(input.value);
+      setKuralNumberError('');
+
+      if (!kuralNum || kuralNum < 1 || kuralNum > 1330) {
+        setKuralNumberError('தயவு செய்து 1 முதல் 1330 வரை உள்ள எண்ணை உள்ளிடவும்');
+        return;
+      }
+
+      const btn = document.querySelector('button[onclick*="fetchKuralFromApi"]');
+      const origText = btn.innerHTML;
+      btn.innerHTML = '⏳ Loading...';
+      btn.disabled = true;
+
+      const targetUrl = `https://thirukkural-api-jyle.onrender.com/tamil/${kuralNum}`;
+      const proxyBuilders = [
+        url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+        url => url,
+        url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      ];
+
+      let lastError = null;
+      let data = null;
+
+      for (const buildUrl of proxyBuilders) {
+        const apiUrl = buildUrl(targetUrl);
+        try {
+          const response = await fetch(apiUrl);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          data = await response.json();
+          if (data && data.tamil) break;
+          throw new Error('Tamil text not found in response');
+        } catch (error) {
+          lastError = error;
+          console.warn('API fetch attempt failed for', apiUrl, error);
+        }
+      }
+
+      if (data && data.tamil) {
+        document.getElementById('kuralInput').value = data.tamil;
+        btn.innerHTML = '✅ Loaded!';
+        setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 1500);
+        return;
+      }
+
+      console.error('API Error:', lastError);
+      alert(
+        `API request failed.\n\nPossible causes:\n` +
+        `- Your API does not allow cross-origin requests.\n` +
+        `- The proxy service is unavailable.\n\n` +
+        `Fix: Enable CORS in your API by adding "Access-Control-Allow-Origin: *".\n\n` +
+        `Details: ${lastError?.message || 'Unknown error'}`
+      );
+      btn.innerHTML = origText;
+      btn.disabled = false;
+    }
+
+    function toggleHistory() {
+      const modal = document.getElementById('historyModal');
+      if (!modal) {
+        console.warn('toggleHistory: historyModal element not found');
+        return;
+      }
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) displayHistory();
+    }
+
+    // BUG FIX #15: Close only when clicking the backdrop, not the inner card
+    function handleModalBackdropClick(e) {
+      const modal = document.getElementById('historyModal');
+      if (modal && e.target === modal) toggleHistory();
+    }
+
+    function displayHistory() {
+      const history = window.AlaKidal.getHistory();
+      const historyList = document.getElementById('historyList');
+      historyList.innerHTML = '';
+
+      if (history.length === 0) {
+        historyList.innerHTML =
+          '<p class="text-gray-500 text-center py-8">வரலாறு காலியாக உள்ளது (History is empty)</p>';
+        return;
+      }
+
+      history.forEach((entry, idx) => {
+        const date      = new Date(entry.timestamp).toLocaleString('ta-IN');
+        const summary   = entry.summary;
+        const kuralText = entry.kuralText.substring(0, 50) +
+                          (entry.kuralText.length > 50 ? '...' : '');
+
+        const item = document.createElement('div');
+        item.className = 'bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition';
+        item.innerHTML = `
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex-1">
+              <p class="font-bold text-gray-800">${kuralText}</p>
+              <p class="text-xs text-gray-500 mt-1">📅 ${date}</p>
+            </div>
+            <button onclick="loadFromHistory(${idx})"
+                    class="text-blue-600 hover:text-blue-800 font-bold text-sm whitespace-nowrap ml-2">↩️ Load</button>
+          </div>
+          <div class="text-xs text-gray-600">
+            சீர்: ${summary.totalSeers} | நேர்: ${summary.nearCount} | நிரை: ${summary.niraiCount}
+          </div>
+        `;
+        historyList.appendChild(item);
+      });
+    }
+
+    function loadFromHistory(idx) {
+      const history = window.AlaKidal.getHistory();
+      if (idx >= 0 && idx < history.length) {
+        document.getElementById('kuralInput').value = history[idx].kuralText;
+        toggleHistory();
+        runAnalysis();
+      }
+    }
+
+    let pendingConfirmCallback = null;
+
+    function showConfirm(message, callback) {
+      const modal = document.getElementById('confirmModal');
+      const messageEl = document.getElementById('confirmMessage');
+      const yesButton = document.getElementById('confirmYesButton');
+      if (!modal || !messageEl || !yesButton) return;
+
+      messageEl.textContent = message;
+      pendingConfirmCallback = callback;
+      modal.classList.remove('hidden');
+      yesButton.focus();
+    }
+
+    function cancelConfirm() {
+      pendingConfirmCallback = null;
+      document.getElementById('confirmModal')?.classList.add('hidden');
+    }
+
+    function confirmAction() {
+      if (typeof pendingConfirmCallback === 'function') {
+        pendingConfirmCallback();
+      }
+      cancelConfirm();
+    }
+
+    function clearHistoryConfirm() {
+      showConfirm(
+        'நிச்சயமாக வரலாறை நீக்க விரும்புகிறீர்களா? (Are you sure you want to clear all history?)',
+        () => {
+          window.AlaKidal.clearHistory();
+          updateHistoryBadge();
+          displayHistory();
+        }
+      );
+    }
+
+    function downloadHistoryPdf() {
+      const history = window.AlaKidal.getHistory();
+      if (history.length === 0) {
+        alert('வரலாறு காலியாக உள்ளது (History is empty)');
+        return;
+      }
+
+      const element = document.createElement('div');
+      element.style.fontFamily = "'Mukta Malar', sans-serif";
+      element.style.padding    = '20px';
+      element.style.lineHeight = '1.8';
+
+      let html = `
+        <div style="text-align:center;margin-bottom:30px;border-bottom:3px solid #2d3748;padding-bottom:15px;">
+          <h1 style="color:#2d3748;font-size:28px;margin:0;">அலகிடுதல் வரலாறு</h1>
+          <p style="color:#718096;font-size:14px;margin:10px 0 0 0;">Alakidal Analysis History</p>
+          <p style="color:#a0aec0;font-size:12px;margin:5px 0 0 0;">
+            வெளியிடப்பட்ட: ${new Date().toLocaleString('ta-IN')}
+          </p>
+        </div>
+      `;
+
+      history.forEach((entry, idx) => {
+        const date = new Date(entry.timestamp).toLocaleString('ta-IN');
+        html += `
+          <div style="page-break-inside:avoid;margin-bottom:25px;border:2px solid #e2e8f0;padding:15px;border-radius:8px;background:#f7fafc;">
+            <h3 style="color:#2d3748;margin:0 0 12px 0;font-size:16px;border-bottom:2px solid #cbd5e1;padding-bottom:8px;">
+              பகுப்பு #${idx + 1}
+            </h3>
+            <div style="margin-bottom:12px;">
+              <p style="color:#2d3748;margin:5px 0;font-size:13px;font-weight:bold;">📜 குறட்பா:</p>
+              <p style="color:#4a5568;margin:5px 0 0 0;font-size:13px;padding:8px;background:white;border-left:3px solid #4299e1;padding-left:12px;">
+                ${entry.kuralText}
+              </p>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:12px;">
+              <div>
+                <p style="color:#2d3748;margin:0;font-size:12px;font-weight:bold;">📅 தேதி:</p>
+                <p style="color:#4a5568;margin:3px 0 0 0;font-size:12px;">${date}</p>
+              </div>
+              <div>
+                <p style="color:#2d3748;margin:0;font-size:12px;font-weight:bold;">✅ முடிவு:</p>
+                <p style="color:#038c7f;margin:3px 0 0 0;font-size:12px;font-weight:bold;">${entry.summary.finalVaipadu}</p>
+              </div>
+            </div>
+            <div style="background:#edf2f7;padding:10px;border-radius:5px;margin-bottom:15px;">
+              <p style="color:#2d3748;margin:0 0 8px 0;font-size:12px;font-weight:bold;">📊 சீர் குறிப்பு:</p>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:12px;">
+                <div><span style="color:#718096;">மொத்தம்:</span> <b>${entry.summary.totalSeers}</b></div>
+                <div><span style="color:#718096;">நேர்:</span> <b>${entry.summary.nearCount}</b></div>
+                <div><span style="color:#718096;">நிரை:</span> <b>${entry.summary.niraiCount}</b></div>
+              </div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;background:white;">
+              <thead>
+                <tr style="background:#2d3748;color:white;">
+                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">சீர்</th>
+                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">பிரித்தல்</th>
+                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">அசை</th>
+                  <th style="border:1px solid #cbd5e1;padding:8px;text-align:left;">வாய்பாடு</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+        entry.seers.forEach((seer, i) => {
+          const rowBg  = i % 2 === 0 ? '#f7fafc' : 'white';
+          const asaiHtml = seer.asais.map(asai => {
+            const bg  = asai === 'நிரை' ? '#ffedd5' : '#dbeafe';
+            const col = asai === 'நிரை' ? '#9a3412' : '#1e40af';
+            return `<span style="display:inline-block;background:${bg};color:${col};padding:3px 6px;border-radius:3px;font-size:11px;margin-right:4px;font-weight:bold;">${asai}</span>`;
+          }).join('');
+          const finalTag = seer.isFinal
+            ? ' <span style="color:#a0aec0;font-size:11px;">(ஈற்று)</span>' : '';
+          html += `
+            <tr style="background:${rowBg};">
+              <td style="border:1px solid #e2e8f0;padding:8px;font-weight:bold;color:#2d3748;">${seer.word}${finalTag}</td>
+              <td style="border:1px solid #e2e8f0;padding:8px;color:#c53030;font-weight:bold;">${seer.split}</td>
+              <td style="border:1px solid #e2e8f0;padding:8px;">${asaiHtml}</td>
+              <td style="border:1px solid #e2e8f0;padding:8px;color:#2c5282;font-weight:bold;">${seer.vaipadu}</td>
+            </tr>
+          `;
+        });
+        html += `</tbody></table></div>`;
+      });
+
+      element.innerHTML = html;
+
+      html2pdf().set({
+        margin    : 10,
+        filename  : 'Alakidal_History_' + new Date().toISOString().split('T')[0] + '.pdf',
+        image     : { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF     : { orientation: 'portrait', unit: 'mm', format: 'a4' },
+      }).from(element).save();
+    }
+
+    // ── Main analysis entry point ────────────────────────
+
+    function runAnalysis() {
+      const input = document.getElementById('kuralInput').value.trim();
+      if (!input) return;
+
+      const { seers, summary } = window.AlaKidal.analyseKural(input);
+
+      window.AlaKidal.addToHistory(input, { seers, summary });
+      updateHistoryBadge();
+
+      document.getElementById('resultBody').innerHTML = '';
+      seers.forEach(appendRow);
+
+      document.getElementById('wordCount').textContent = `${summary.totalSeers} சீர்கள்`;
+      document.getElementById('conclusion').textContent =
+        `இக்குறட்பா '${summary.finalVaipadu}' என்னும் வாய்பாட்டில் முடிந்துள்ளது.`;
+
+      document.getElementById('resultsArea').classList.remove('hidden');
+
+      if (window.innerWidth < 768) {
+        document.getElementById('resultsArea').scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    // ── UI controls ──────────────────────────────────────
+
+    function toggleDarkMode() {
+      // BUG FIX #8: targets #mainBody which now correctly exists on <body>
+      const body = document.getElementById('mainBody');
+      body.classList.toggle('dark');
+      document.getElementById('modeIcon').textContent =
+        body.classList.contains('dark') ? '☀️' : '🌙';
+    }
+
+    function loadExample() {
+      document.getElementById('kuralInput').value =
+        'அகர முதல எழுத்தெல்லாம் ஆதி\nபகவன் முதற்றே உலகு';
+      runAnalysis();
+    }
+
+    function clearAll() {
+      document.getElementById('kuralInput').value = '';
+      document.getElementById('resultsArea').classList.add('hidden');
+    }
+
+    // BUG FIX #13: Accept the button element as a parameter
+    function copyResults(btn) {
+      const text = document.getElementById('resultsArea').innerText;
+      const orig = btn.innerHTML;
+
+      const doFallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      };
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(doFallback);
+      } else {
+        doFallback();
+      }
+
+      btn.innerHTML = '✅ நகலெடுக்கப்பட்டது!';
+      setTimeout(() => (btn.innerHTML = orig), 2000);
+    }
+
+    // Initialize history badge on page load
+    window.addEventListener('DOMContentLoaded', updateHistoryBadge);
+  </script>
+</body>
+</html>
