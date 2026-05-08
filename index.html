@@ -360,9 +360,9 @@
 
       const targetUrl = `https://thirukkural-api-jyle.onrender.com/tamil/${kuralNum}`;
       const proxyBuilders = [
-        url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-        url => url,
+        url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&t=${Date.now()}`,
         url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        url => url,
       ];
 
       let lastError = null;
@@ -374,6 +374,12 @@
           const response = await fetch(apiUrl);
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           data = await response.json();
+          
+          // Handle allorigins.win wrapped response
+          if (data.contents && typeof data.contents === 'string') {
+            data = JSON.parse(data.contents);
+          }
+          
           if (data && data.tamil) break;
           throw new Error('Tamil text not found in response');
         } catch (error) {
