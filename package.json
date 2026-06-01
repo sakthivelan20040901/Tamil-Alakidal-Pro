@@ -1,0 +1,14 @@
+{
+  "name": "alagidal",
+  "version": "1.0.0",
+  "description": "Thirukkural Alakidal Analysis Tool",
+  "main": "alakidal_logic.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Sakthivelan",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^30.0.0"
+  }
+}
